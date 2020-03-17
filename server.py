@@ -4,8 +4,9 @@
 # e.g. if server.py and broswer are running on the same machine, then use http://localhost:8080
 
 # Import the required libraries
+import mimetypes
+from os import path
 from socket import *
-import base64
 
 
 # Listening port for the server
@@ -29,46 +30,32 @@ while 1:
     connectionSocket, addr = serverSocket.accept()
 
     # Retrieve the message sent by the client
-    request = connectionSocket.recv(1024)
+    request = connectionSocket.recv(1024).decode()
     print(request)
-    if "index" in str(request):
-        # create HTTP response
-        response = "HTTP /1.1 200 OK\r\n\r\n"
+    filename = request.split(' ')[1][1:]
+    # create HTTP response
+    if path.exists(filename):
+        header = "HTTP/1.0 200 OK\r\n\r\n"
 
-        # send HTTP response back to the client
-        connectionSocket.send(response.encode())
+        mime = mimetypes.guess_type(filename)
+        if 'text' in mime[0]:
+            mode = 'r'
+        else:
+            mode = 'rb'
 
-        # encode html file
-        file = open('index.html', 'rb')
-        data = file.read()
+        with open(filename, mode) as file:
+            body = file.read()
+    else:
+        header = "HTTP/1.0 404 Not Found\r\n\r\n"
+        body = "404 Error Sorry"
 
-        connectionSocket.send(data)
+    if not isinstance(body, bytes):
+        body = body.encode()
+    response = header.encode() + body
 
-    elif 'picture' in str(request):
-        # create HTTP response
-        response = "HTTP /1.1 200 OK Content-Type: image/png\r\n\r\n"
-
-        # send HTTP response back to the client
-        connectionSocket.send(response.encode())
-
-        # encode html file
-        with open("picture.png",'rb') as image:
-            image = image.read()
-            connectionSocket.send(image)
-
-
-    elif 'image2' in str(request):
-        # create HTTP response
-        response = "HTTP /1.1 200 OK Content-Type: image/png\r\n\r\n"
-
-        # send HTTP response back to the client
-        connectionSocket.send(response.encode())
-
-        # encode html file
-        with open("image2.png",'rb') as image:
-            image = image.read()
-            connectionSocket.send(image)
-
+    if not isinstance(response, bytes):
+        response = response.encode()
+    connectionSocket.send(response)
 
     # Close the connection
     connectionSocket.close()
